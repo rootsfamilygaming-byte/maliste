@@ -137,6 +137,7 @@
       <span class="pill" id="demoBadge" aria-hidden="true">DEMO</span>
     </div>
     <div class="row">
+      <span id="userBadge" class="muted" style="display:none;"></span>
       <div class="lang-switch">
         <span class="muted" data-i18n="lang">Langue</span>
         <button class="btn ghost" id="btnFr">FR</button>
@@ -403,6 +404,19 @@
         btn_later: "Plus tard",
         demo_banner: "Mode Démo — vos données seront effacées à la fermeture de l’onglet ou après 30 min d’inactivité."
         enable_auth: "Mode compte",
+        auth_title: "Connexion / Création de compte",
+        auth_sub: "Sauvegarde locale (démo sans serveur).",
+        auth_tab_signup: "Créer un compte",
+        auth_tab_signin: "Se connecter",
+        field_email: "Courriel",
+        field_password: "Mot de passe",
+        field_confirm: "Confirmer",
+        btn_create: "Créer",
+        btn_login: "Connexion",
+        btn_cancel: "Annuler",
+        btn_signout: "Se déconnecter",
+        auth_welcome: "Connecté :",
+        auth_error: "Erreur :",
       },
       en: {
         app_title: "My Grocery List",
@@ -456,6 +470,19 @@
         btn_later: "Later",
         demo_banner: "Demo Mode — your data will be erased when closing the tab or after 30 minutes of inactivity."
         enable_auth: "Account mode",
+        auth_title: "Sign in / Create account",
+        auth_sub: "Local-only save (no server).",
+        auth_tab_signup: "Create account",
+        auth_tab_signin: "Sign in",
+        field_email: "Email",
+        field_password: "Password",
+        field_confirm: "Confirm",
+        btn_create: "Create",
+        btn_login: "Login",
+        btn_cancel: "Cancel",
+        btn_signout: "Sign out",
+        auth_welcome: "Signed in:",
+        auth_error: "Error:",
       }
     };
 
@@ -535,6 +562,108 @@
       window.addEventListener(evt, resetIdleTimer, { passive: true })
     );
 
+    
+    // ---------- Auth (local-only) ----------
+    const ACC_KEY = "account:v1";            // stores an object {email, passHash, createdAt}
+    const SESSION_KEY = "sessionUserEmail";  // currently "signed in" email
+    
+    async function sha256(text) {
+      const enc = new TextEncoder().encode(text);
+      const buf = await crypto.subtle.digest('SHA-256', enc);
+      const arr = Array.from(new Uint8Array(buf));
+      return arr.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    function getAccount() {
+      try { return JSON.parse(localStorage.getItem(ACC_KEY) || "null"); } catch { return null; }
+    }
+    function setAccount(obj) {
+      localStorage.setItem(ACC_KEY, JSON.stringify(obj));
+    }
+    function getSessionEmail() {
+      return localStorage.getItem(SESSION_KEY) || "";
+    }
+    function setSessionEmail(email) {
+      if (email) localStorage.setItem(SESSION_KEY, email);
+      else localStorage.removeItem(SESSION_KEY);
+    }
+    function isSignedIn() {
+      const acc = getAccount();
+      const sess = getSessionEmail();
+      return !!(acc && sess && acc.email === sess);
+    }
+    function showAuthModal(show=true) {
+      document.getElementById("authModalBackdrop").style.display = show ? "grid" : "none";
+      if (show) { switchAuthTab('signup'); }
+    }
+    function switchAuthTab(which) {
+      const sgn = document.getElementById("signupForm");
+      const sni = document.getElementById("signinForm");
+      const tSgn = document.getElementById("tabSignup");
+      const tSni = document.getElementById("tabSignin");
+      const dict = I18N[app.lang];
+      document.getElementById("authTitle").innerText = dict.auth_title;
+      document.getElementById("authSub").innerText = dict.auth_sub;
+      document.getElementById("lblEmail").innerText = dict.field_email;
+      document.getElementById("lblPass").innerText = dict.field_password;
+      document.getElementById("lblConfirm").innerText = dict.field_confirm;
+      document.getElementById("lblEmail2").innerText = dict.field_email;
+      document.getElementById("lblPass2").innerText = dict.field_password;
+      tSgn.innerText = dict.auth_tab_signup;
+      tSni.innerText = dict.auth_tab_signin;
+      tSgn.classList.toggle("ghost", which !== 'signup');
+      tSni.classList.toggle("ghost", which !== 'signin');
+      sgn.style.display = which === 'signup' ? 'grid' : 'none';
+      sni.style.display = which === 'signin' ? 'grid' : 'none';
+      document.getElementById("authError").style.display = "none";
+    }
+    function updateUserBadge() {
+      const badge = document.getElementById("userBadge");
+      const dict = I18N[app.lang];
+      if (isSignedIn()) {
+        badge.style.display = "inline";
+        badge.textContent = dict.auth_welcome + " " + getSessionEmail();
+      } else {
+        badge.style.display = "none";
+        badge.textContent = "";
+      }
+    }
+    async function handleCreateAccount() {
+      const email = (document.getElementById("suEmail").value || "").trim().toLowerCase();
+      const pw = document.getElementById("suPass").value || "";
+      const conf = document.getElementById("suConfirm").value || "";
+      const err = document.getElementById("authError");
+      const dict = I18N[app.lang];
+      if (!email or not email.__contains__("@")) { err.innerText = dict.auth_error + " email invalide."; err.style.display = "block"; return; }
+      if (pw.length < 6) { err.innerText = dict.auth_error + " mot de passe trop court (≥ 6)."; err.style.display = "block"; return; }
+      if (pw != conf) { err.innerText = dict.auth_error + " confirmation ne correspond pas."; err.style.display = "block"; return; }
+      const acc = getAccount();
+      if (acc && acc.email === email) { err.innerText = dict.auth_error + " compte déjà existant."; err.style.display = "block"; return; }
+      const hash = await sha256(pw);
+      setAccount({email, passHash: hash, createdAt: new Date().toISOString()});
+      setSessionEmail(email);
+      showAuthModal(false);
+      updateUserBadge();
+      setDemo(false); // switch to account mode automatically
+    }
+    async function handleLogin() {
+      const email = (document.getElementById("siEmail").value || "").trim().toLowerCase();
+      const pw = document.getElementById("siPass").value || "";
+      const err = document.getElementById("authError");
+      const dict = I18N[app.lang];
+      const acc = getAccount();
+      if (!acc || acc.email !== email) { err.innerText = dict.auth_error + " compte introuvable."; err.style.display = "block"; return; }
+      const hash = await sha256(pw);
+      if (hash !== acc.passHash) { err.innerText = dict.auth_error + " mot de passe invalide."; err.style.display = "block"; return; }
+      setSessionEmail(email);
+      showAuthModal(false);
+      updateUserBadge();
+      setDemo(false);
+    }
+    function handleSignOut() {
+      setSessionEmail("");
+      updateUserBadge();
+    }
+
     // ---------- Language ----------
     function detectDefaultLang() {
       const saved = localStorage.getItem("lang");
@@ -565,6 +694,7 @@
       // Title
       document.title = dict.app_title + " — Démo";
       updateModeButtons();
+      updateUserBadge();
     }
 
     // ---------- Demo Mode ----------
@@ -587,6 +717,7 @@
       loadData();
       renderAll();
       updateModeButtons();
+      updateUserBadge();
     } else {
         demoBadge.style.display = "none";
         demoBanner.style.display = "none";
@@ -594,6 +725,7 @@
       loadData();
       renderAll();
       updateModeButtons();
+      updateUserBadge();
     }
 
     // ---------- Data ----------
@@ -787,6 +919,15 @@
     // ---------- App Init ----------
     window.addEventListener("DOMContentLoaded", () => {
 
+      // Auth wiring
+      document.getElementById("tabSignup").addEventListener("click", () => switchAuthTab("signup"));
+      document.getElementById("tabSignin").addEventListener("click", () => switchAuthTab("signin"));
+      document.getElementById("btnCreate").addEventListener("click", () => { handleCreateAccount(); });
+      document.getElementById("btnLogin").addEventListener("click", () => { handleLogin(); });
+      document.getElementById("btnCancelAuth1").addEventListener("click", () => showAuthModal(false));
+      document.getElementById("btnCancelAuth2").addEventListener("click", () => showAuthModal(false));
+
+
       // ---------- Emoji Picker ----------
       const EMOJIS = ["🍎","🍏","🍌","🍊","🍋","🍉","🍇","🍓","🍒","🍑","🍍","🥝",
         "🥦","🥕","🧅","🧄","🥔","🥬","🍅","🌽","🫑","🫛","🍄",
@@ -848,6 +989,7 @@
       seedIfEmpty();
       loadData();
       renderAll();
+      updateUserBadge();
 
       // Auto-open Donations modal on every launch (per request)
       openDonationsModal();
@@ -858,7 +1000,15 @@
 
       // Events — demo
       const enableDemo = () => setDemo(true);
-      const enableAuth = () => setDemo(false);
+      const enableAuth = () => {
+        const acc = getAccount();
+        setDemo(false);
+        if (!isSignedIn()) {
+          // If no session active, open auth modal; default to signup if no account yet
+          showAuthModal(true);
+          switchAuthTab(acc ? "signin" : "signup");
+        }
+      };
       document.getElementById("btnToggleDemo").addEventListener("click", enableDemo);
       document.getElementById("btnEnableDemo2").addEventListener("click", enableDemo);
       const btnAuth = document.getElementById("btnToggleAuth");
@@ -962,5 +1112,37 @@
       document.getElementById("donModalBackdrop").style.display = "none";
     }
   </script>
+
+  <!-- Auth Modal -->
+  <div id="authModalBackdrop" class="modal-backdrop">
+    <div class="modal">
+      <div class="watermark" aria-hidden="true"></div>
+      <h2 id="authTitle">Connexion / Création de compte</h2>
+      <p class="muted" id="authSub">Sauvegarde locale (démo sans serveur).</p>
+      <div style="display:flex; gap:8px; margin:8px 0 12px;">
+        <button class="btn ghost" id="tabSignup">Créer un compte</button>
+        <button class="btn ghost" id="tabSignin">Se connecter</button>
+      </div>
+      <div id="authError" class="muted" style="color:#ffb3c0; display:none;"></div>
+      <div id="signupForm" style="display:grid; gap:10px;">
+        <label><span id="lblEmail">Courriel</span><br/><input id="suEmail" type="email" placeholder="email@example.com"></label>
+        <label><span id="lblPass">Mot de passe</span><br/><input id="suPass" type="password" placeholder="********"></label>
+        <label><span id="lblConfirm">Confirmer</span><br/><input id="suConfirm" type="password" placeholder="********"></label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn" id="btnCreate">Créer</button>
+          <button class="btn ghost" id="btnCancelAuth1">Annuler</button>
+        </div>
+      </div>
+      <div id="signinForm" style="display:none; gap:10px;">
+        <label><span id="lblEmail2">Courriel</span><br/><input id="siEmail" type="email" placeholder="email@example.com"></label>
+        <label><span id="lblPass2">Mot de passe</span><br/><input id="siPass" type="password" placeholder="********"></label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn" id="btnLogin">Connexion</button>
+          <button class="btn ghost" id="btnCancelAuth2">Annuler</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
+
