@@ -115,6 +115,9 @@
     .lang-switch { display:flex; gap:6px; align-items:center; }
     .lang-switch button { padding: 8px 10px; border-radius:10px; }
     .hidden { display: none !important; }
+  
+    .emoji-btn { font-size: 20px; padding: 6px; border-radius: 10px; background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); cursor:pointer; }
+    .emoji-btn:active { transform: translateY(1px); }
   </style>
 </head>
 <body>
@@ -140,6 +143,7 @@
         <button class="btn ghost" id="btnEn">EN</button>
       </div>
       <button class="btn" id="btnToggleDemo" data-i18n="enable_demo">Activer démo</button>
+      <button class="btn ghost" id="btnToggleAuth" data-i18n="enable_auth">Mode compte</button>
       <button class="btn ghost" id="btnResetDemo" data-i18n="reset_demo">Reset démo</button>
       <button class="btn warn" id="btnDonateNow" data-i18n="donate_now">Dons</button>
     </div>
@@ -196,7 +200,14 @@
         <div style="display:grid; gap:10px; grid-template-columns: repeat(2,1fr);">
           <div>
             <label data-i18n="field_item">Article</label>
-            <input id="inItem" placeholder="🍎 Pommes">
+            <div style="display:flex; gap:8px;">
+              <input id="inItem" placeholder="🍎 Pommes" style="flex:1;">
+              <button class="btn ghost" id="btnEmoji" type="button">😊</button>
+            </div>
+            <div id="emojiPanel" class="card hidden" style="position:absolute; z-index:80; width:min(360px,90vw); padding:10px; margin-top:6px;">
+              <div class="muted" style="margin-bottom:6px;">Emoji</div>
+              <div id="emojiGrid" style="display:grid; grid-template-columns: repeat(8,1fr); gap:6px;"></div>
+            </div>
           </div>
           <div>
             <label data-i18n="field_qty">Quantité</label>
@@ -391,6 +402,7 @@
         don_modal_sub: "App gratuite. Vos dons accélèrent le développement.",
         btn_later: "Plus tard",
         demo_banner: "Mode Démo — vos données seront effacées à la fermeture de l’onglet ou après 30 min d’inactivité."
+        enable_auth: "Mode compte",
       },
       en: {
         app_title: "My Grocery List",
@@ -443,6 +455,7 @@
         don_modal_sub: "Free app. Your donations accelerate development.",
         btn_later: "Later",
         demo_banner: "Demo Mode — your data will be erased when closing the tab or after 30 minutes of inactivity."
+        enable_auth: "Account mode",
       }
     };
 
@@ -551,11 +564,13 @@
       document.getElementById("btnEn").classList.toggle("active", lang === "en");
       // Title
       document.title = dict.app_title + " — Démo";
+      updateModeButtons();
     }
 
     // ---------- Demo Mode ----------
     function setDemo(on) {
       app.mode = on ? "demo" : "auth";
+      try { localStorage.setItem("appMode", app.mode); } catch (e) {}
       const demoBadge = document.getElementById("demoBadge");
       const demoBanner = document.getElementById("demoBanner");
       const dict = I18N[app.lang];
@@ -571,6 +586,14 @@
       }
       loadData();
       renderAll();
+      updateModeButtons();
+    } else {
+        demoBadge.style.display = "none";
+        demoBanner.style.display = "none";
+      }
+      loadData();
+      renderAll();
+      updateModeButtons();
     }
 
     // ---------- Data ----------
@@ -737,6 +760,16 @@
       renderPlanning();
     }
 
+    function updateModeButtons() {
+      const btnDemo = document.getElementById("btnToggleDemo");
+      const btnAuth = document.getElementById("btnToggleAuth");
+      if (!btnDemo || !btnAuth) return;
+      const demoActive = app.mode === "demo";
+      btnDemo.classList.toggle("ghost", !demoActive);
+      btnAuth.classList.toggle("ghost", demoActive);
+    }
+
+
     // ---------- Tabs ----------
     function setActiveTab(name) {
       document.querySelectorAll("nav .tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
@@ -753,11 +786,65 @@
 
     // ---------- App Init ----------
     window.addEventListener("DOMContentLoaded", () => {
+
+      // ---------- Emoji Picker ----------
+      const EMOJIS = ["🍎","🍏","🍌","🍊","🍋","🍉","🍇","🍓","🍒","🍑","🍍","🥝",
+        "🥦","🥕","🧅","🧄","🥔","🥬","🍅","🌽","🫑","🫛","🍄",
+        "🥛","🧀","🥚","🍞","🥖","🥐","🍗","🥩","🐟","🧈","🧂",
+        "🍝","🍚","🍕","🌮","🌯","🥙","🥗","🍪","🧃","🥤","☕","🧋",
+        "🧻","🧴","🧽","🧼","🧹","🧺","🦴","🐶","🐱","🥫","🧊"];
+      const emojiPanel = document.getElementById("emojiPanel");
+      const emojiGrid = document.getElementById("emojiGrid");
+      const btnEmoji = document.getElementById("btnEmoji");
+      const inItem = document.getElementById("inItem");
+
+      function buildEmojiGrid() {
+        emojiGrid.innerHTML = "";
+        EMOJIS.forEach(e => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "emoji-btn";
+          b.textContent = e;
+          b.addEventListener("click", () => insertAtCaret(inItem, e + " "));
+          emojiGrid.appendChild(b);
+        });
+      }
+      function insertAtCaret(el, text) {
+        el.focus();
+        const start = el.selectionStart ?? el.value.length;
+        const end = el.selectionEnd ?? el.value.length;
+        const before = el.value.slice(0, start);
+        const after = el.value.slice(end);
+        el.value = before + text + after;
+        const newPos = start + text.length;
+        el.setSelectionRange(newPos, newPos);
+      }
+      function toggleEmojiPanel() {
+        if (emojiPanel.classList.contains("hidden")) {
+          // position panel under input
+          const rect = inItem.getBoundingClientRect();
+          emojiPanel.style.left = rect.left + "px";
+          emojiPanel.style.top = (rect.bottom + window.scrollY) + "px";
+          emojiPanel.classList.remove("hidden");
+          buildEmojiGrid();
+        } else {
+          emojiPanel.classList.add("hidden");
+        }
+      }
+      btnEmoji.addEventListener("click", toggleEmojiPanel);
+      document.addEventListener("click", (e) => {
+        if (!emojiPanel.classList.contains("hidden")) {
+          const within = e.target.closest("#emojiPanel") || e.target.closest("#btnEmoji");
+          if (!within) emojiPanel.classList.add("hidden");
+        }
+      });
+
       // Language
       setLang(detectDefaultLang());
 
-      // Demo default OFF; user can enable
-      setDemo(false);
+      // Définir le mode à partir de la préférence stockée
+      const storedMode = (localStorage.getItem("appMode") || "auth");
+      setDemo(storedMode === "demo");
       seedIfEmpty();
       loadData();
       renderAll();
@@ -771,8 +858,11 @@
 
       // Events — demo
       const enableDemo = () => setDemo(true);
+      const enableAuth = () => setDemo(false);
       document.getElementById("btnToggleDemo").addEventListener("click", enableDemo);
       document.getElementById("btnEnableDemo2").addEventListener("click", enableDemo);
+      const btnAuth = document.getElementById("btnToggleAuth");
+      if (btnAuth) btnAuth.addEventListener("click", enableAuth);
       document.getElementById("btnResetDemo").addEventListener("click", () => {
         demoStore.clearAll(); location.reload();
       });
