@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ma Liste d'Épicerie — Démo</title>
+  <meta name="description" content="Application de liste d'épicerie — démo avec mode invité et dons." />
+  <style>
+    :root {
+      --bg: #0f1220;
+      --card: #151935;
+      --muted: #8892b0;
+      --text: #eef2ff;
+      --accent: #7c5cff;
+      --accent-2: #00d2d6;
+      --danger: #ff5370;
+      --ok: #25d366;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: linear-gradient(160deg, #0b0e1a 0%, #0f1220 45%, #0f1428 100%);
+      color: var(--text);
+    }
+    header {
+      position: sticky; top: 0; z-index: 40;
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 18px; backdrop-filter: blur(8px);
+      background: linear-gradient(180deg, rgba(10,14,28,.85), rgba(10,14,28,.55));
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo svg { width: 32px; height: 32px; }
+    .title { font-weight: 700; letter-spacing: .2px; }
+    .pill {
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 8px 12px; border-radius: 999px;
+      background: rgba(124,92,255,.12); color: #dcd7ff; border: 1px solid rgba(124,92,255,.3);
+    }
+    .row { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .btn {
+      appearance: none; border: 0; cursor: pointer;
+      background: linear-gradient(180deg, var(--accent), #5f3bff);
+      color: white; padding: 10px 14px; border-radius: 12px; font-weight: 600;
+      box-shadow: var(--shadow); transition: transform .06s ease;
+    }
+    .btn:active { transform: translateY(1px) }
+    .btn.ghost {
+      background: rgba(255,255,255,.06); color: var(--text);
+      border: 1px solid rgba(255,255,255,.12); box-shadow: none;
+    }
+    .btn.warn {
+      background: linear-gradient(180deg, #ff6b6b, #ff5370);
+    }
+    .container { max-width: 1100px; margin: 20px auto; padding: 0 18px 90px; }
+    nav {
+      display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 18px;
+    }
+    nav .tab {
+      padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.08); cursor: pointer; user-select: none;
+    }
+    nav .tab.active {
+      background: linear-gradient(180deg, rgba(124,92,255,.22), rgba(124,92,255,.06));
+      border-color: rgba(124,92,255,.5);
+    }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    .card {
+      background: linear-gradient(180deg, rgba(21,25,53,.9), rgba(16,20,44,.9));
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius);
+      padding: 16px; box-shadow: var(--shadow);
+    }
+    .card h3 { margin: 0 0 8px; }
+    .muted { color: var(--muted); }
+    input, select, textarea {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.06);
+      color: var(--text);
+    }
+    table { width: 100%; border-collapse: collapse; border-spacing: 0; }
+    th, td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+    td .thumb { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(255,255,255,.15); }
+    .kpis { display:grid; grid-template-columns: repeat(3,1fr); gap:12px; }
+    .kpi { background: rgba(255,255,255,.06); padding: 14px; border-radius: 12px; text-align: center; }
+    .demo-banner {
+      display:none; margin: 10px 0 0; padding: 10px 12px; border-radius: 12px;
+      background: rgba(0,210,214,.12); border: 1px solid rgba(0,210,214,.4); color:#bffcff;
+    }
+    .footer-space { height: 90px; }
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; display: none; place-items: center; z-index: 70;
+      background: radial-gradient(ellipse at center, rgba(0,0,0,.6), rgba(0,0,0,.75));
+    }
+    .modal {
+      width: min(580px, 92vw);
+      background: linear-gradient(180deg, rgba(21,25,53,.98), rgba(16,20,44,.98));
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 20px; padding: 18px; box-shadow: var(--shadow);
+    }
+    .modal h2 { margin: 0 0 6px; }
+    .grid-amounts { display:grid; grid-template-columns: repeat(5, 1fr); gap:8px; }
+    .grid-amounts .btn { width: 100%; }
+    .watermark {
+      position: absolute; inset: 0; pointer-events: none; opacity: .08;
+      background-image: repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(255,255,255,.4) 40px, rgba(255,255,255,.4) 44px);
+      mix-blend-mode: overlay; border-radius: inherit;
+    }
+    .lang-switch { display:flex; gap:6px; align-items:center; }
+    .lang-switch button { padding: 8px 10px; border-radius:10px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#7c5cff"/>
+            <stop offset="100%" stop-color="#00d2d6"/>
+          </linearGradient>
+        </defs>
+        <circle cx="32" cy="32" r="30" fill="url(#g1)" opacity=".25"/>
+        <path d="M19 22h26v4H19zM19 30h26v4H19zM19 38h14v4H19z" fill="url(#g1)" />
+      </svg>
+      <div class="title" data-i18n="app_title">Ma Liste d'Épicerie</div>
+      <span class="pill" id="demoBadge" aria-hidden="true">DEMO</span>
+    </div>
+    <div class="row">
+      <div class="lang-switch">
+        <span class="muted" data-i18n="lang">Langue</span>
+        <button class="btn ghost" id="btnFr">FR</button>
+        <button class="btn ghost" id="btnEn">EN</button>
+      </div>
+      <button class="btn" id="btnToggleDemo" data-i18n="enable_demo">Activer démo</button>
+      <button class="btn ghost" id="btnResetDemo" data-i18n="reset_demo">Reset démo</button>
+      <button class="btn warn" id="btnDonateNow" data-i18n="donate_now">Dons</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="demoBanner" class="demo-banner"></div>
+
+    <nav id="tabs">
+      <div class="tab active" data-tab="home" data-i18n="tab_home">Accueil</div>
+      <div class="tab" data-tab="list" data-i18n="tab_list">Liste</div>
+      <div class="tab" data-tab="pantry" data-i18n="tab_pantry">Garde-manger</div>
+      <div class="tab" data-tab="recipes" data-i18n="tab_recipes">Recettes</div>
+      <div class="tab" data-tab="planning" data-i18n="tab_planning">Planning</div>
+      <div class="tab" data-tab="donations" data-i18n="tab_donations">Dons</div>
+    </nav>
+
+    <section id="home" class="grid">
+      <div class="card">
+        <h3 data-i18n="hero_title">Planifie tes courses, sans te casser la tête.</h3>
+        <p class="muted" data-i18n="hero_sub">
+          App gratuite, simple et rapide — ajoute des items, suis tes stocks, et soutiens le projet si tu aimes 💛.
+        </p>
+        <div class="kpis">
+          <div class="kpi">
+            <div id="kpiListCount" class="strong">0</div>
+            <div class="muted" data-i18n="kpi_list">Éléments dans ta liste</div>
+          </div>
+          <div class="kpi">
+            <div id="kpiPantryCount" class="strong">0</div>
+            <div class="muted" data-i18n="kpi_pantry">Articles au garde-manger</div>
+          </div>
+          <div class="kpi">
+            <div id="kpiRecipesCount" class="strong">0</div>
+            <div class="muted" data-i18n="kpi_recipes">Idées recettes</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 data-i18n="demo_card_title">Mode Démo</h3>
+        <p class="muted" data-i18n="demo_card_sub">
+          Essayez l’app sans compte : vos données ne sont gardées que pendant cette session (onglet).
+        </p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn" id="btnEnableDemo2" data-i18n="enable_demo">Activer démo</button>
+          <button class="btn ghost" id="btnDonateFromCard" data-i18n="open_donations">Ouvrir la page Dons</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="list" class="grid hidden">
+      <div class="card">
+        <h3 data-i18n="list_add_title">Ajouter un article</h3>
+        <div style="display:grid; gap:10px; grid-template-columns: repeat(2,1fr);">
+          <div>
+            <label data-i18n="field_item">Article</label>
+            <input id="inItem" placeholder="🍎 Pommes">
+          </div>
+          <div>
+            <label data-i18n="field_qty">Quantité</label>
+            <input id="inQty" type="number" min="1" step="1" value="1">
+          </div>
+          <div>
+            <label data-i18n="field_unit">Unité</label>
+            <input id="inUnit" placeholder="kg, paquet...">
+          </div>
+          <div>
+            <label data-i18n="field_price">Prix</label>
+            <input id="inPrice" type="number" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div style="grid-column:1/-1;">
+            <label data-i18n="field_note">Note</label>
+            <input id="inNote" placeholder="Bio, promo, etc.">
+          </div>
+          <div style="grid-column:1/-1;">
+            <label data-i18n="field_photo">Photo (facultatif)</label>
+            <input id="inPhoto" type="file" accept="image/*">
+          </div>
+          <div style="grid-column:1/-1; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn" id="btnAdd" data-i18n="btn_add">Ajouter</button>
+            <button class="btn ghost" id="btnClearChecked" data-i18n="btn_clear_checked">Supprimer cochés</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 data-i18n="list_table_title">Ma liste</h3>
+        <table id="tblList">
+          <thead>
+            <tr>
+              <th></th>
+              <th data-i18n="th_item">Article</th>
+              <th data-i18n="th_qty">Qté</th>
+              <th data-i18n="th_unit">Unité</th>
+              <th data-i18n="th_price">Prix</th>
+              <th data-i18n="th_note">Note</th>
+              <th data-i18n="th_photo">Photo</th>
+              <th data-i18n="th_actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="pantry" class="grid hidden">
+      <div class="card">
+        <h3 data-i18n="pantry_title">Garde-manger</h3>
+        <div style="display:grid; gap:10px; grid-template-columns: repeat(2,1fr);">
+          <div>
+            <label data-i18n="field_item">Article</label>
+            <input id="inPItem" placeholder="🥛 Lait">
+          </div>
+          <div>
+            <label data-i18n="field_qty">Quantité</label>
+            <input id="inPQty" type="number" min="1" step="1" value="1">
+          </div>
+          <div style="grid-column:1/-1; display:flex; gap:8px;">
+            <button class="btn" id="btnAddPantry" data-i18n="btn_add">Ajouter</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 data-i18n="pantry_table_title">Mes stocks</h3>
+        <table id="tblPantry">
+          <thead>
+            <tr>
+              <th data-i18n="th_item">Article</th>
+              <th data-i18n="th_qty">Qté</th>
+              <th data-i18n="th_since">Depuis</th>
+              <th data-i18n="th_actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="recipes" class="grid hidden">
+      <div class="card">
+        <h3 data-i18n="recipes_title">Recettes</h3>
+        <p class="muted" data-i18n="recipes_hint">Idées simples basées sur les ingrédients courants (démo).</p>
+        <ul id="ulRecipes" style="margin:0; padding-left:18px;"></ul>
+      </div>
+    </section>
+
+    <section id="planning" class="grid hidden">
+      <div class="card">
+        <h3 data-i18n="planning_title">Planning</h3>
+        <p class="muted" data-i18n="planning_hint">Glissez des recettes/journées (démo visuelle).</p>
+        <div id="planningGrid" style="display:grid; grid-template-columns: repeat(7,1fr); gap:8px;">
+        </div>
+      </div>
+    </section>
+
+    <section id="donations" class="grid hidden">
+      <div class="card">
+        <h3 data-i18n="don_page_title">Soutenez le projet 💛</h3>
+        <p class="muted" data-i18n="don_page_sub">App gratuite — chaque don nous aide à livrer plus vite.</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+          <button class="btn" data-amount="2.5">☕ 2,50 $</button>
+          <button class="btn" data-amount="5">5 $</button>
+          <button class="btn" data-amount="10">10 $</button>
+          <button class="btn" data-amount="20">20 $</button>
+          <button class="btn" data-amount="50">50 $</button>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <input id="inCustomAmount" type="number" min="1" step="0.5" placeholder="Montant personnalisé">
+          <button class="btn" id="btnCustomDonate" data-i18n="btn_donate">Donner</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-space"></div>
+  </div>
+
+  <!-- Donations Modal (auto open on load) -->
+  <div id="donModalBackdrop" class="modal-backdrop">
+    <div class="modal">
+      <div class="watermark" aria-hidden="true"></div>
+      <h2 data-i18n="don_modal_title">Soutenez le projet 💛</h2>
+      <p class="muted" data-i18n="don_modal_sub">App gratuite. Vos dons accélèrent le développement.</p>
+      <div class="grid-amounts" style="margin:10px 0 12px;">
+        <button class="btn" data-amount="2.5">2,50 $</button>
+        <button class="btn" data-amount="5">5 $</button>
+        <button class="btn" data-amount="10">10 $</button>
+        <button class="btn" data-amount="20">20 $</button>
+        <button class="btn" data-amount="50">50 $</button>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <input id="inCustomAmount2" type="number" min="1" step="0.5" placeholder="Montant personnalisé">
+        <button class="btn" id="btnCustomDonate2" data-i18n="btn_donate">Donner</button>
+        <button class="btn ghost" id="btnLater" data-i18n="btn_later">Plus tard</button>
+      </div>
+      <p id="demoNote" class="muted" style="margin-top:10px;"></p>
+    </div>
+  </div>
+
+  <script>
+    // ---------- i18n ----------
+    const I18N = {
+      fr: {
+        app_title: "Ma Liste d'Épicerie",
+        lang: "Langue",
+        enable_demo: "Activer démo",
+        reset_demo: "Reset démo",
+        donate_now: "Dons",
+        tab_home: "Accueil",
+        tab_list: "Liste",
+        tab_pantry: "Garde-manger",
+        tab_recipes: "Recettes",
+        tab_planning: "Planning",
+        tab_donations: "Dons",
+        hero_title: "Planifie tes courses, sans te casser la tête.",
+        hero_sub: "App gratuite, simple et rapide — ajoute des items, suis tes stocks, et soutiens le projet si tu aimes 💛.",
+        kpi_list: "Éléments dans ta liste",
+        kpi_pantry: "Articles au garde-manger",
+        kpi_recipes: "Idées recettes",
+        demo_card_title: "Mode Démo",
+        demo_card_sub: "Essayez l’app sans compte : vos données ne sont gardées que pendant cette session (onglet).",
+        open_donations: "Ouvrir la page Dons",
+        list_add_title: "Ajouter un article",
+        field_item: "Article",
+        field_qty: "Quantité",
+        field_unit: "Unité",
+        field_price: "Prix",
+        field_note: "Note",
+        field_photo: "Photo (facultatif)",
+        btn_add: "Ajouter",
+        btn_clear_checked: "Supprimer cochés",
+        list_table_title: "Ma liste",
+        th_item: "Article",
+        th_qty: "Qté",
+        th_unit: "Unité",
+        th_price: "Prix",
+        th_note: "Note",
+        th_photo: "Photo",
+        th_actions: "Actions",
+        pantry_title: "Garde-manger",
+        pantry_table_title: "Mes stocks",
+        th_since: "Depuis",
+        recipes_title: "Recettes",
+        recipes_hint: "Idées simples basées sur les ingrédients courants (démo).",
+        planning_title: "Planning",
+        planning_hint: "Glissez des recettes/journées (démo visuelle).",
+        don_page_title: "Soutenez le projet 💛",
+        don_page_sub: "App gratuite — chaque don nous aide à livrer plus vite.",
+        btn_donate: "Donner",
+        don_modal_title: "Soutenez le projet 💛",
+        don_modal_sub: "App gratuite. Vos dons accélèrent le développement.",
+        btn_later: "Plus tard",
+        demo_banner: "Mode Démo — vos données seront effacées à la fermeture de l’onglet ou après 30 min d’inactivité."
+      },
+      en: {
+        app_title: "My Grocery List",
+        lang: "Language",
+        enable_demo: "Enable demo",
+        reset_demo: "Reset demo",
+        donate_now: "Donate",
+        tab_home: "Home",
+        tab_list: "List",
+        tab_pantry: "Pantry",
+        tab_recipes: "Recipes",
+        tab_planning: "Planning",
+        tab_donations: "Donations",
+        hero_title: "Plan your groceries, without the headache.",
+        hero_sub: "Free, simple & fast — add items, track your pantry, and support the project if you like it 💛.",
+        kpi_list: "Items in your list",
+        kpi_pantry: "Pantry items",
+        kpi_recipes: "Recipe ideas",
+        demo_card_title: "Demo Mode",
+        demo_card_sub: "Try without an account: your data only persists for this session (tab).",
+        open_donations: "Open Donations",
+        list_add_title: "Add an item",
+        field_item: "Item",
+        field_qty: "Qty",
+        field_unit: "Unit",
+        field_price: "Price",
+        field_note: "Note",
+        field_photo: "Photo (optional)",
+        btn_add: "Add",
+        btn_clear_checked: "Remove checked",
+        list_table_title: "My list",
+        th_item: "Item",
+        th_qty: "Qty",
+        th_unit: "Unit",
+        th_price: "Price",
+        th_note: "Note",
+        th_photo: "Photo",
+        th_actions: "Actions",
+        pantry_title: "Pantry",
+        pantry_table_title: "My pantry",
+        th_since: "Since",
+        recipes_title: "Recipes",
+        recipes_hint: "Simple ideas based on common ingredients (demo).",
+        planning_title: "Planning",
+        planning_hint: "Drag recipes/days (visual demo).",
+        don_page_title: "Support the project 💛",
+        don_page_sub: "Free app — every donation helps us ship faster.",
+        btn_donate: "Donate",
+        don_modal_title: "Support the project 💛",
+        don_modal_sub: "Free app. Your donations accelerate development.",
+        btn_later: "Later",
+        demo_banner: "Demo Mode — your data will be erased when closing the tab or after 30 minutes of inactivity."
+      }
+    };
+
+    const PAYPAL_BASE = "https://paypal.me/malistedepicerie";
+
+    const app = {
+      mode: "auth", // "demo" or "auth"
+      lang: "fr",
+      idleTimer: null,
+      idleMs: 30 * 60 * 1000,
+      data: {
+        list: [],
+        pantry: [],
+        recipes: [
+          { name: "🍝 Pâtes au pesto" },
+          { name: "🥗 Salade express" },
+          { name: "🍳 Omelette légumes" }
+        ],
+        planning: {} // map day -> recipe name
+      }
+    };
+
+    // ---------- Storage helpers ----------
+    const demoPrefix = "demo:";
+    const keys = {
+      list: "list:v1",
+      pantry: "pantry:v1",
+      recipes: "recipes:v1",
+      planning: "planning:v1"
+    };
+
+    const demoStore = {
+      set: (k, v) => sessionStorage.setItem(demoPrefix + k, JSON.stringify(v)),
+      get: (k, def = null) => {
+        const raw = sessionStorage.getItem(demoPrefix + k);
+        return raw ? JSON.parse(raw) : def;
+      },
+      clearAll: () => {
+        for (const k of Object.keys(sessionStorage)) {
+          if (k.startsWith(demoPrefix)) sessionStorage.removeItem(k);
+        }
+      }
+    };
+
+    const authStore = {
+      set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+      get: (k, def = null) => {
+        const raw = localStorage.getItem(k);
+        return raw ? JSON.parse(raw) : def;
+      }
+    };
+
+    function storeSet(k, v) {
+      if (app.mode === "demo") demoStore.set(k, v);
+      else authStore.set(k, v);
+    }
+    function storeGet(k, def) {
+      return app.mode === "demo" ? demoStore.get(k, def) : authStore.get(k, def);
+    }
+
+    function paypalLink(amount) {
+      const a = String(amount).replace(",", ".").trim();
+      return `${PAYPAL_BASE}/${a}`;
+    }
+
+    // ---------- Idle handling (demo) ----------
+    function resetIdleTimer() {
+      if (app.idleTimer) clearTimeout(app.idleTimer);
+      if (app.mode === "demo") {
+        app.idleTimer = setTimeout(() => {
+          demoStore.clearAll();
+          location.reload();
+        }, app.idleMs);
+      }
+    }
+    ["click", "keydown", "mousemove", "scroll", "touchstart"].forEach(evt =>
+      window.addEventListener(evt, resetIdleTimer, { passive: true })
+    );
+
+    // ---------- Language ----------
+    function detectDefaultLang() {
+      const saved = localStorage.getItem("lang");
+      if (saved) return saved;
+      const nav = (navigator.language || "fr").toLowerCase();
+      return nav.startsWith("fr") ? "fr" : "en";
+    }
+    function setLang(lang) {
+      app.lang = lang;
+      localStorage.setItem("lang", lang);
+      const dict = I18N[lang];
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        if (dict[key]) el.innerText = dict[key];
+      });
+      // Update demo banner text
+      const demoBanner = document.getElementById("demoBanner");
+      demoBanner.textContent = dict.demo_banner;
+      // Update placeholders
+      document.getElementById("inItem").placeholder = lang === "fr" ? "🍎 Pommes" : "🍎 Apples";
+      document.getElementById("inUnit").placeholder = lang === "fr" ? "kg, paquet..." : "kg, pack...";
+      document.getElementById("inNote").placeholder = lang === "fr" ? "Bio, promo, etc." : "Organic, deal, etc.";
+      document.getElementById("inCustomAmount").placeholder = lang === "fr" ? "Montant personnalisé" : "Custom amount";
+      document.getElementById("inCustomAmount2").placeholder = document.getElementById("inCustomAmount").placeholder;
+      // Buttons FR/EN active state (visual)
+      document.getElementById("btnFr").classList.toggle("active", lang === "fr");
+      document.getElementById("btnEn").classList.toggle("active", lang === "en");
+      // Title
+      document.title = dict.app_title + " — Démo";
+    }
+
+    // ---------- Demo Mode ----------
+    function setDemo(on) {
+      app.mode = on ? "demo" : "auth";
+      const demoBadge = document.getElementById("demoBadge");
+      const demoBanner = document.getElementById("demoBanner");
+      const dict = I18N[app.lang];
+      if (on) {
+        demoBadge.style.display = "inline-flex";
+        demoBanner.style.display = "block";
+        demoBanner.textContent = dict.demo_banner;
+        resetIdleTimer();
+        window.addEventListener("beforeunload", () => demoStore.clearAll());
+      } else {
+        demoBadge.style.display = "none";
+        demoBanner.style.display = "none";
+      }
+      loadData();
+      renderAll();
+    }
+
+    // ---------- Data ----------
+    function seedIfEmpty() {
+      const l = storeGet(keys.list, null);
+      const p = storeGet(keys.pantry, null);
+      if (!l) {
+        storeSet(keys.list, [
+          { id: crypto.randomUUID(), item: "🍞 Pain", qty: 1, unit: "paquet", price: 3.99, note: "blé entier", photo: "" },
+          { id: crypto.randomUUID(), item: "🧀 Fromage", qty: 1, unit: "bloc", price: 6.49, note: "cheddar", photo: "" },
+          { id: crypto.randomUUID(), item: "🥦 Brocoli", qty: 2, unit: "têtes", price: 4.00, note: "", photo: "" }
+        ]);
+      }
+      if (!p) {
+        storeSet(keys.pantry, [
+          { id: crypto.randomUUID(), item: "🥫 Tomates", qty: 3, since: new Date().toISOString() }
+        ]);
+      }
+      if (!storeGet(keys.recipes, null)) {
+        storeSet(keys.recipes, app.data.recipes);
+      }
+      if (!storeGet(keys.planning, null)) {
+        storeSet(keys.planning, {});
+      }
+    }
+
+    function loadData() {
+      app.data.list = storeGet(keys.list, []);
+      app.data.pantry = storeGet(keys.pantry, []);
+      app.data.recipes = storeGet(keys.recipes, app.data.recipes);
+      app.data.planning = storeGet(keys.planning, {});
+    }
+
+    function saveList() { storeSet(keys.list, app.data.list); }
+    function savePantry() { storeSet(keys.pantry, app.data.pantry); }
+    function saveRecipes() { storeSet(keys.recipes, app.data.recipes); }
+    function savePlanning() { storeSet(keys.planning, app.data.planning); }
+
+    // ---------- Render ----------
+    function fmtSince(iso) {
+      const d = new Date(iso);
+      const diff = Math.max(0, Date.now() - d.getTime());
+      const days = Math.floor(diff / (1000*60*60*24));
+      if (app.lang === "fr") {
+        if (days === 0) return "Aujourd'hui";
+        if (days === 1) return "Hier";
+        return `Il y a ${days} j`;
+      } else {
+        if (days === 0) return "Today";
+        if (days === 1) return "Yesterday";
+        return `${days}d ago`;
+      }
+    }
+
+    function renderKPIs() {
+      document.getElementById("kpiListCount").innerText = app.data.list.length;
+      document.getElementById("kpiPantryCount").innerText = app.data.pantry.length;
+      document.getElementById("kpiRecipesCount").innerText = app.data.recipes.length;
+    }
+
+    function renderList() {
+      const tbody = document.querySelector("#tblList tbody");
+      tbody.innerHTML = "";
+      for (const row of app.data.list) {
+        const tr = document.createElement("tr");
+        const tdCheck = document.createElement("td");
+        const cb = document.createElement("input");
+        cb.type = "checkbox"; cb.dataset.id = row.id; cb.className = "row-check";
+        tdCheck.appendChild(cb);
+        const tdItem = document.createElement("td"); tdItem.textContent = row.item;
+        const tdQty = document.createElement("td"); tdQty.textContent = row.qty;
+        const tdUnit = document.createElement("td"); tdUnit.textContent = row.unit || "";
+        const tdPrice = document.createElement("td"); tdPrice.textContent = row.price ? Number(row.price).toFixed(2) : "";
+        const tdNote = document.createElement("td"); tdNote.textContent = row.note || "";
+        const tdPhoto = document.createElement("td");
+        if (row.photo) {
+          const img = document.createElement("img");
+          img.src = row.photo; img.className = "thumb"; img.alt = "thumb";
+          tdPhoto.appendChild(img);
+        }
+        const tdActions = document.createElement("td");
+        const btnToPantry = document.createElement("button");
+        btnToPantry.className = "btn ghost";
+        btnToPantry.textContent = app.lang === "fr" ? "→ Garde-manger" : "→ Pantry";
+        btnToPantry.onclick = () => {
+          app.data.pantry.push({ id: crypto.randomUUID(), item: row.item, qty: row.qty, since: new Date().toISOString() });
+          savePantry();
+          app.data.list = app.data.list.filter(x => x.id !== row.id);
+          saveList(); renderAll();
+        };
+        const btnDel = document.createElement("button");
+        btnDel.className = "btn warn";
+        btnDel.textContent = app.lang === "fr" ? "Supprimer" : "Delete";
+        btnDel.onclick = () => {
+          app.data.list = app.data.list.filter(x => x.id !== row.id);
+          saveList(); renderAll();
+        };
+        tdActions.append(btnToPantry, document.createTextNode(" "), btnDel);
+
+        tr.append(tdCheck, tdItem, tdQty, tdUnit, tdPrice, tdNote, tdPhoto, tdActions);
+        tbody.appendChild(tr);
+      }
+    }
+
+    function renderPantry() {
+      const tbody = document.querySelector("#tblPantry tbody");
+      tbody.innerHTML = "";
+      for (const row of app.data.pantry) {
+        const tr = document.createElement("tr");
+        const tdItem = document.createElement("td"); tdItem.textContent = row.item;
+        const tdQty = document.createElement("td"); tdQty.textContent = row.qty;
+        const tdSince = document.createElement("td"); tdSince.textContent = fmtSince(row.since);
+        const tdActions = document.createElement("td");
+        const btnUse = document.createElement("button");
+        btnUse.className = "btn ghost";
+        btnUse.textContent = app.lang === "fr" ? "Utiliser" : "Use";
+        btnUse.onclick = () => {
+          row.qty = Math.max(0, (parseInt(row.qty || 0) - 1));
+          if (row.qty === 0) {
+            app.data.pantry = app.data.pantry.filter(x => x.id !== row.id);
+          }
+          savePantry(); renderAll();
+        };
+        tdActions.appendChild(btnUse);
+        tr.append(tdItem, tdQty, tdSince, tdActions);
+        tbody.appendChild(tr);
+      }
+    }
+
+    function renderRecipes() {
+      const ul = document.getElementById("ulRecipes");
+      ul.innerHTML = "";
+      for (const r of app.data.recipes) {
+        const li = document.createElement("li");
+        li.textContent = r.name;
+        ul.appendChild(li);
+      }
+    }
+
+    function renderPlanning() {
+      const grid = document.getElementById("planningGrid");
+      grid.innerHTML = "";
+      const days = app.lang === "fr"
+        ? ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"]
+        : ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+      days.forEach((d, idx) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        const h = document.createElement("h3"); h.textContent = d;
+        const p = document.createElement("p");
+        p.className = "muted";
+        const key = String(idx);
+        p.textContent = app.data.planning[key] || "—";
+        card.append(h, p);
+        grid.appendChild(card);
+      });
+    }
+
+    function renderAll() {
+      renderKPIs();
+      renderList();
+      renderPantry();
+      renderRecipes();
+      renderPlanning();
+    }
+
+    // ---------- Tabs ----------
+    function setActiveTab(name) {
+      document.querySelectorAll("nav .tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+      ["home","list","pantry","recipes","planning","donations"].forEach(id => {
+        document.getElementById(id).classList.toggle("hidden", id !== name);
+      });
+    }
+
+    // ---------- File helpers ----------
+    function fileToObjectURL(file) {
+      const url = URL.createObjectURL(file);
+      return url;
+    }
+
+    // ---------- App Init ----------
+    window.addEventListener("DOMContentLoaded", () => {
+      // Language
+      setLang(detectDefaultLang());
+
+      // Demo default OFF; user can enable
+      setDemo(false);
+      seedIfEmpty();
+      loadData();
+      renderAll();
+
+      // Auto-open Donations modal on every launch (per request)
+      openDonationsModal();
+
+      // Events — language
+      document.getElementById("btnFr").addEventListener("click", () => setLang("fr"));
+      document.getElementById("btnEn").addEventListener("click", () => setLang("en"));
+
+      // Events — demo
+      const enableDemo = () => setDemo(true);
+      document.getElementById("btnToggleDemo").addEventListener("click", enableDemo);
+      document.getElementById("btnEnableDemo2").addEventListener("click", enableDemo);
+      document.getElementById("btnResetDemo").addEventListener("click", () => {
+        demoStore.clearAll(); location.reload();
+      });
+
+      // Tabs
+      document.getElementById("tabs").addEventListener("click", (e) => {
+        const tab = e.target.closest(".tab");
+        if (tab) setActiveTab(tab.dataset.tab);
+      });
+
+      // Add list item
+      document.getElementById("btnAdd").addEventListener("click", () => {
+        const item = document.getElementById("inItem").value.trim();
+        const qty = parseInt(document.getElementById("inQty").value || "1");
+        const unit = document.getElementById("inUnit").value.trim();
+        const price = parseFloat(document.getElementById("inPrice").value || "0");
+        const note = document.getElementById("inNote").value.trim();
+        const fileInput = document.getElementById("inPhoto");
+        let photo = "";
+        if (fileInput.files && fileInput.files[0]) {
+          photo = fileToObjectURL(fileInput.files[0]);
+        }
+        if (!item) return;
+        app.data.list.push({ id: crypto.randomUUID(), item, qty, unit, price, note, photo });
+        saveList(); renderAll();
+        // reset inputs
+        document.getElementById("inItem").value = "";
+        document.getElementById("inQty").value = "1";
+        document.getElementById("inUnit").value = "";
+        document.getElementById("inPrice").value = "";
+        document.getElementById("inNote").value = "";
+        document.getElementById("inPhoto").value = "";
+      });
+
+      // Clear checked
+      document.getElementById("btnClearChecked").addEventListener("click", () => {
+        const checks = document.querySelectorAll(".row-check:checked");
+        const ids = new Set([...checks].map(c => c.dataset.id));
+        app.data.list = app.data.list.filter(x => !ids.has(x.id));
+        saveList(); renderAll();
+      });
+
+      // Pantry add
+      document.getElementById("btnAddPantry").addEventListener("click", () => {
+        const item = document.getElementById("inPItem").value.trim();
+        const qty = parseInt(document.getElementById("inPQty").value || "1");
+        if (!item) return;
+        app.data.pantry.push({ id: crypto.randomUUID(), item, qty, since: new Date().toISOString() });
+        savePantry(); renderAll();
+        document.getElementById("inPItem").value = "";
+        document.getElementById("inPQty").value = "1";
+      });
+
+      // Donations page buttons
+      document.querySelectorAll("#donations .btn[data-amount]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const amt = btn.getAttribute("data-amount");
+          window.open(paypalLink(amt), "_blank");
+        });
+      });
+      document.getElementById("btnCustomDonate").addEventListener("click", () => {
+        const amt = document.getElementById("inCustomAmount").value;
+        if (!amt || Number(amt) <= 0) return;
+        window.open(paypalLink(amt), "_blank");
+      });
+
+      // Donations modal
+      document.querySelectorAll("#donModalBackdrop .btn[data-amount]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const amt = btn.getAttribute("data-amount");
+          window.open(paypalLink(amt), "_blank");
+        });
+      });
+      document.getElementById("btnCustomDonate2").addEventListener("click", () => {
+        const amt = document.getElementById("inCustomAmount2").value;
+        if (!amt || Number(amt) <= 0) return;
+        window.open(paypalLink(amt), "_blank");
+      });
+      document.getElementById("btnLater").addEventListener("click", closeDonationsModal);
+      document.getElementById("btnDonateNow").addEventListener("click", openDonationsModal);
+      document.getElementById("btnDonateFromCard").addEventListener("click", () => {
+        setActiveTab("donations");
+        // also open modal for emphasis
+        openDonationsModal();
+      });
+    });
+
+    function openDonationsModal() {
+      const dict = I18N[app.lang];
+      const note = document.getElementById("demoNote");
+      note.textContent = app.mode === "demo" ? (app.lang === "fr"
+        ? "Mode démo : ouverture d’une page PayPal; aucune donnée sensible n’est stockée ici."
+        : "Demo mode: opens a PayPal page; no sensitive data is stored here.") : "";
+      document.getElementById("donModalBackdrop").style.display = "grid";
+    }
+    function closeDonationsModal() {
+      document.getElementById("donModalBackdrop").style.display = "none";
+    }
+  </script>
+</body>
+</html>
